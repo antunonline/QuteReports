@@ -6,7 +6,8 @@
 #include <QSqlQueryModel>
 #include <QVector>
 #include "src/entities.h"
-#include <QThread>
+#include "src/bufferedquerymodel.h"
+#include <QPushButton>
 
 namespace Ui {
 class ReportType1;
@@ -21,7 +22,8 @@ public:
         TIME,
         DATETIME,
         COMBOBOX,
-        SQLCOMBOBOX
+        SQLCOMBOBOX,
+        SUBQUERY
     };
 private:
     InputType _type;
@@ -57,11 +59,10 @@ public:
 
 private:
     Ui::ReportType1 *ui;
-    QThread _thread;
-    QSqlQuery _sqlQuery;
     QString _query;
-    QSqlQueryModel _queryModel;
+    BufferedQueryModel * _queryModel;
     QVector<ReportType1DynamicInput> _dynamicInput;
+    QPushButton * _runReportBtn =nullptr;
 private slots:
     void runReport();
     void on_excelExportBtn_clicked();

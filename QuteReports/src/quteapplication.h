@@ -15,7 +15,7 @@ class QuteApplication
 {
 //    QGuiApplication _guiApp;
     QApplication _qapp;
-     QQmlApplicationEngine _engine;
+     // QQmlApplicationEngine _engine;
     QSettings * _settings;
     std::unique_ptr<QuteMainWindow> _mainWindow;
     ReportModel _reportModel;

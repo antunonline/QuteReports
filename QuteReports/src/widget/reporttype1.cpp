@@ -56,38 +56,39 @@ std::tuple<QString, QVector<ReportType1DynamicInput>> unserializeReportType1Json
 
 ReportType1::ReportType1(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::ReportType1),
-    _queryModel{this}{
+    ui(new Ui::ReportType1) {
     ui->setupUi(this);
-    _queryModel.moveToThread(&_thread);
-    ui->tableView->setModel(&_queryModel);
+    _queryModel = new BufferedQueryModel();
 }
 
 ReportType1::ReportType1(QString const & report, QVector<ReportType1DynamicInput> const &dynamicInput,  QWidget *parent) :
     QWidget(parent),
     ui(new Ui::ReportType1),
     _query{report},
-    _queryModel{this},
     _dynamicInput{dynamicInput}
 {
+    _queryModel = new BufferedQueryModel();
     ui->setupUi(this);
     generateDynamicInput();
-    _queryModel.moveToThread(&_thread);
-    ui->tableView->setModel(&_queryModel);
-    _sqlQuery.prepare(_query);
+    _queryModel->setQuery(_query);
+    connect(_queryModel, &BufferedQueryModel::dataLoaded, [this](){
+        this->_runReportBtn->setDisabled(false);
+    });
 }
 
 ReportType1::ReportType1(const Report &report, QWidget *parent) :
-    ui(new Ui::ReportType1),
-    _queryModel{this}
+    ui(new Ui::ReportType1)
 {
     (void)parent;
+    _queryModel = new BufferedQueryModel();
     ui->setupUi(this);
     auto tpl = unserializeReportType1Json(report.data());
     _query = std::get<0>(tpl);
-    _queryModel.moveToThread(&_thread);
-    ui->tableView->setModel(&_queryModel);
-    _sqlQuery.prepare(_query);
+
+    _queryModel->setQuery(_query);
+    connect(_queryModel, &BufferedQueryModel::dataLoaded, [this](){
+        this->_runReportBtn->setDisabled(false);
+    });
 
     _dynamicInput = std::get<1>(tpl);
     generateDynamicInput();
@@ -95,30 +96,38 @@ ReportType1::ReportType1(const Report &report, QWidget *parent) :
 
 ReportType1::~ReportType1()
 {
+    _queryModel->deleteLater();
     delete ui;
 }
 
 void ReportType1::runReport()
 {
+    this->_runReportBtn->setDisabled(true);
     qDebug() << "Execute";
+    _queryModel->setQuery(_query);
+
+
     for(const ReportType1DynamicInput &i : _dynamicInput){
         switch(i.type()){
             case TYPE::TEXT:
-            _sqlQuery.bindValue(":"+i.name(), findChild<QLineEdit*>(i.name())->text());
+            _queryModel->bindValue(":"+i.name(), findChild<QLineEdit*>(i.name())->text());
             break;
             case TYPE::DATE:
-            _sqlQuery.bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd"));
+            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd"));
             qDebug() << i.name() << "DATE" << findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd");
             break;
             case TYPE::DATETIME:
-            _sqlQuery.bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
+            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
             qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd");
             break;
         case TYPE::COMBOBOX:
             break;
         case TYPE::SQLCOMBOBOX:
-            _sqlQuery.bindValue(":"+i.name(), findChild<QComboBox*>(i.name())->currentText());
+            _queryModel->bindValue(":"+i.name(), findChild<QComboBox*>(i.name())->currentText());
             qDebug() << i.name() << "SQLCOMBOBOX: " << findChild<QComboBox*>(i.name())->currentText();
+            break;
+        case TYPE::SUBQUERY:
+            qDebug() << i.name() << "SUBQUERY: " << findChild<QComboBox*>(i.name())->currentText();
             break;
         case TYPE::TIME:
             break;
@@ -128,8 +137,8 @@ void ReportType1::runReport()
         }
     }
 
-    _sqlQuery.exec();
-    qDebug() << _queryModel.lastError();
+    _queryModel->exec();
+    ui->treeView->setModel(_queryModel);
 
 }
 
@@ -223,10 +232,11 @@ void ReportType1::generateSqlCombobox(const ReportType1DynamicInput &ti)
 
 void ReportType1::generateLastElements()
 {
-    QPushButton *button = new QPushButton(this);
-    button->setText("Prikaži");
-    connect(button, &QPushButton::clicked, this, &ReportType1::runReport);
-    ui->controlsLayout->addWidget(button);
+    _runReportBtn = new QPushButton(this);
+
+    _runReportBtn->setText("Prikaži");
+    connect(_runReportBtn, &QPushButton::clicked, this, &ReportType1::runReport);
+    ui->controlsLayout->addWidget(_runReportBtn);
     ui->controlsLayout->addStretch();
 }
 
@@ -330,6 +340,6 @@ void ReportType1::on_excelExportBtn_clicked()
     auto fileName = QFileDialog::getSaveFileName(this);
     if(fileName.size() == 0 )return;
     QmlItemModelXlsxExporter exporter;
-    exporter.exportModel(fileName, _queryModel);
+    exporter.exportModel(fileName, *_queryModel);
 
 }

@@ -14,12 +14,14 @@ ReportList::ReportList(QWidget *parent) :
 
     connect(ui->refreshButton, &QPushButton::clicked, [this](){this->refresh();});
     connect(ui->reportNameFilter, &QLineEdit::textChanged, [this](){this->refresh();});
-    connect(ui->reportsTable, &QTableView::clicked, this, &ReportList::reportSelected);
-    connect(ui->reportsTable, &QTableView::doubleClicked, this, &ReportList::openReport);
+    connect(ui->reportsTable, &QTreeView::clicked, this, &ReportList::reportSelected);
+    connect(ui->reportsTable, &QTreeView::doubleClicked, this, &ReportList::openReport);
     connect(ui->openReportBtn, &QPushButton::clicked, this, &ReportList::openReport);
     connect(ui->tabWidget, &QTabWidget::tabCloseRequested, [this](const int tabId){
         if(tabId == 0) return;
+        auto widget = ui->tabWidget->widget(tabId);
         ui->tabWidget->removeTab(tabId);
+        widget->deleteLater();
     });
 
     _query.prepare("select id, name, description from reports where name like :name");
@@ -61,7 +63,7 @@ void ReportList::openReport()
         return;
     auto widget = _widgetBuilder(selectedReportId());
     if(widget){
-        int tabId = ui->tabWidget->addTab(widget, widget->objectName());
+        ui->tabWidget->addTab(widget, widget->objectName());
     }
 }
 

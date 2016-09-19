@@ -6,4 +6,5 @@ int main(int argc, char *argv[])
     QuteApplication app{argc, argv};
     app.bootstrap();
     app.run();
+    return 0;
 }

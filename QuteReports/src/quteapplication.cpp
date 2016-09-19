@@ -7,9 +7,14 @@
 #include <QSqlError>
 #include <QLocale>
 #include <utility>
+#include <QFile>
+#include <iostream>
+using std::cout;
+#undef QT_NO_DEBUG
 
 bool createSqlConnections(const QSettings & settings){
     if(settings.allKeys().contains("DB")==false){
+        cout  << "Could not find \"DB\" settings key";
         qDebug() << "Could not find \"DB\" settings key";
         return false;
     }
@@ -42,14 +47,17 @@ bool createSqlConnections(const QSettings & settings){
             d = QSqlDatabase::addDatabase(driver.toString());
         else
             d = QSqlDatabase::addDatabase(driver.toString(), key);
-        d.setHostName(hostname.toString());
-        d.setUserName(username.toString());
-        d.setPassword(password.toString());
-        d.setPort(port.toInt());
+        if(driver.toString() != "QODBC") {
+            d.setHostName(hostname.toString());
+            d.setUserName(username.toString());
+            d.setPassword(password.toString());
+            d.setPort(port.toInt());
+        }
         d.setDatabaseName(dbname.toString());
 
         if(d.open()==false){
             qDebug() << "Failed to open connection to " << k;
+            cout << "Failed to open connection to " << d.lastError().text().toStdString();
             qDebug() << d.lastError();
             continue;
         } else {
@@ -75,6 +83,9 @@ void QuteApplication::bootstrap()
 {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     _settings = new QSettings("config.ini",  QSettings::IniFormat);
+    QFile configFile("config.ini");
+    if(configFile.exists()==false)
+        qDebug() << "Configuration file could not be found: " << configFile.fileName();
     createSqlConnections(*_settings);
     // _engine.load(QUrl(QLatin1String("qrc:/main.qml")));
     QLocale locale("hr_HR");

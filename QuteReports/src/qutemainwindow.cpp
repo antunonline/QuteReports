@@ -9,6 +9,7 @@ QuteMainWindow::QuteMainWindow(ReportEditController &rec, QWidget *parent) :
     _reportList(this),
     ui(new Ui::QuteMainWindow)
 {
+    (void) rec;
     ui->setupUi(this);
     this->setCentralWidget(&_reportList);
     _reportList.setWidgetBuilderDelegate([this](const int reportId){

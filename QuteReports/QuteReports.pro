@@ -13,6 +13,7 @@ SOURCES += main.cpp \
     src/reportmodel.cpp \
     src/entities.cpp \
     src/reporteditorcontroller.cpp \
+    src/bufferedquerymodel.cpp \
     src/reportviewcontroller.cpp
 
 RESOURCES += qml.qrc
@@ -35,6 +36,7 @@ HEADERS += \
     src/entities.h \
     src/reporteditorcontroller.h \
     src/reportviewcontroller.h \
+    src/bufferedquerymodel.h \
     src/delegates.h
 
 FORMS += \

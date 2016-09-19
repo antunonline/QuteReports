@@ -321,7 +321,7 @@ void ReportType1Editor::populateFields()
     ui->reportName->setText(_report.name());
     ui->reportDescription->setText(_report.description());
     ui->sqlComboboxText->setPlainText("");
-    ui->sqlEditor->setText(_controller->query());
+    ui->sqlEditor->setPlainText(_controller->query());
     setupTable();
 }
 

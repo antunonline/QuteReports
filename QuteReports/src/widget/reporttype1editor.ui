@@ -182,7 +182,11 @@
     </layout>
    </item>
    <item>
-    <widget class="QPlainTextEdit" name="sqlComboboxText"/>
+    <widget class="QPlainTextEdit" name="sqlComboboxText">
+     <property name="tabStopWidth">
+      <number>10</number>
+     </property>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -243,12 +247,9 @@
     </layout>
    </item>
    <item>
-    <widget class="QTextEdit" name="sqlEditor">
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>400</height>
-      </size>
+    <widget class="QPlainTextEdit" name="sqlEditor">
+     <property name="tabStopWidth">
+      <number>20</number>
      </property>
     </widget>
    </item>
