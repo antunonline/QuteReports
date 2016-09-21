@@ -13,6 +13,9 @@
 #include <QFileDialog>
 #include "src/qml/qmlitemmodelxlsxexporter.h"
 #include <QComboBox>
+#include <atomic>
+
+static std::atomic_int _atomic_db_instance_counter{0};
 
 std::tuple<QString, QVector<ReportType1DynamicInput>> unserializeReportType1Json(const QString&data){
     // { query: query, inputElements: [ dynamicInput  ]  }
@@ -42,6 +45,9 @@ std::tuple<QString, QVector<ReportType1DynamicInput>> unserializeReportType1Json
                     if(ReportType1DynamicInput::toInputType(eType) == ReportType1DynamicInput::InputType::SQLCOMBOBOX &&
                             inputElement.size()>3)
                         other = inputElement[3].toString();
+                    else if(ReportType1DynamicInput::toInputType(eType) == ReportType1DynamicInput::InputType::SUBQUERY &&
+                            inputElement.size()>3)
+                        other = inputElement[3].toString();
 
 
                     dynamicElements.push_back({eType, eName, eLabel, other});
@@ -57,8 +63,7 @@ std::tuple<QString, QVector<ReportType1DynamicInput>> unserializeReportType1Json
 ReportType1::ReportType1(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::ReportType1) {
-    ui->setupUi(this);
-    _queryModel = new BufferedQueryModel();
+    init();
 }
 
 ReportType1::ReportType1(QString const & report, QVector<ReportType1DynamicInput> const &dynamicInput,  QWidget *parent) :
@@ -67,36 +72,40 @@ ReportType1::ReportType1(QString const & report, QVector<ReportType1DynamicInput
     _query{report},
     _dynamicInput{dynamicInput}
 {
-    _queryModel = new BufferedQueryModel();
-    ui->setupUi(this);
-    generateDynamicInput();
-    _queryModel->setQuery(_query);
-    connect(_queryModel, &BufferedQueryModel::dataLoaded, [this](){
-        this->_runReportBtn->setDisabled(false);
-    });
+    init();
 }
 
 ReportType1::ReportType1(const Report &report, QWidget *parent) :
     ui(new Ui::ReportType1)
 {
     (void)parent;
-    _queryModel = new BufferedQueryModel();
-    ui->setupUi(this);
+
     auto tpl = unserializeReportType1Json(report.data());
     _query = std::get<0>(tpl);
-
-    _queryModel->setQuery(_query);
-    connect(_queryModel, &BufferedQueryModel::dataLoaded, [this](){
-        this->_runReportBtn->setDisabled(false);
-    });
-
     _dynamicInput = std::get<1>(tpl);
+    init();
+}
+
+void ReportType1::init()
+{
+    ui->setupUi(this);
+
+    auto _db = QSqlDatabase::cloneDatabase(QSqlDatabase::database(), _atomic_db_instance_counter.fetch_add(1)+"ReportType1");
+    _db.open();
+    _queryTaskRunner = new QueryExecTaskRunner(_db);
     generateDynamicInput();
+
+    connect(_queryTaskRunner, &QueryExecTaskRunner::done, [this](){
+        this->_runReportBtn->setDisabled(false);
+        this->ui->treeView->setModel(nullptr);
+        this->ui->treeView->setModel(&(*_queryTaskRunner->model()));
+        this->_queryModel = _queryTaskRunner->model();
+    });
 }
 
 ReportType1::~ReportType1()
 {
-    _queryModel->deleteLater();
+    _queryTaskRunner->deleteLater();
     delete ui;
 }
 
@@ -104,42 +113,40 @@ void ReportType1::runReport()
 {
     this->_runReportBtn->setDisabled(true);
     qDebug() << "Execute";
-    _queryModel->setQuery(_query);
+    _queryTaskRunner->setQuery(_query);
 
 
     for(const ReportType1DynamicInput &i : _dynamicInput){
         switch(i.type()){
             case TYPE::TEXT:
-            _queryModel->bindValue(":"+i.name(), findChild<QLineEdit*>(i.name())->text());
+            _queryTaskRunner->bindValue(":"+i.name(), findChild<QLineEdit*>(i.name())->text());
             break;
             case TYPE::DATE:
-            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd"));
+            _queryTaskRunner->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd"));
             qDebug() << i.name() << "DATE" << findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd");
             break;
             case TYPE::DATETIME:
-            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
+            _queryTaskRunner->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
             qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd");
             break;
         case TYPE::COMBOBOX:
             break;
         case TYPE::SQLCOMBOBOX:
-            _queryModel->bindValue(":"+i.name(), findChild<QComboBox*>(i.name())->currentText());
+            _queryTaskRunner->bindValue(":"+i.name(), findChild<QComboBox*>(i.name())->currentText());
             qDebug() << i.name() << "SQLCOMBOBOX: " << findChild<QComboBox*>(i.name())->currentText();
             break;
         case TYPE::SUBQUERY:
-            qDebug() << i.name() << "SUBQUERY: " << findChild<QComboBox*>(i.name())->currentText();
+            qDebug() << i.name() << "SUBQUERY: " << findChild<QLineEdit*>(i.name())->text();
+            _queryTaskRunner->addSubquery(":"+i.name(), i.variant().toString(), findChild<QLineEdit*>(i.name())->text());
             break;
         case TYPE::TIME:
             break;
         case TYPE::NONE:
             break;
-
         }
     }
 
-    _queryModel->exec();
-    ui->treeView->setModel(_queryModel);
-
+    _queryTaskRunner->exec();
 }
 
 void ReportType1::generateDynamicInput()
@@ -164,6 +171,9 @@ void ReportType1::generateDynamicInput()
             break;
         case TYPE::SQLCOMBOBOX:
             generateSqlCombobox(i);
+            break;
+        case TYPE::SUBQUERY:
+            generateSqlSubquery(i);
             break;
         }
     }
@@ -219,15 +229,18 @@ void ReportType1::generateDateTime(const ReportType1DynamicInput &ti)
 
 void ReportType1::generateSqlCombobox(const ReportType1DynamicInput &ti)
 {
-    auto sql = ti.comboboxSql();
-    QSqlQueryModel * model = new QSqlQueryModel(this);
-    model->setQuery(sql);
-    QComboBox *box = new QComboBox(this);
-    box->setObjectName(ti.name());
-    box->setModel(model);
-
     generateLabel(ti.label());
-    ui->controlsLayout->addWidget(box);
+    QLineEdit *edit = new QLineEdit(this);
+    edit->setObjectName(ti.name());
+    ui->controlsLayout->addWidget(edit);
+}
+
+void ReportType1::generateSqlSubquery(const ReportType1DynamicInput &ti)
+{
+    generateLabel(ti.label());
+    QLineEdit *edit = new QLineEdit(this);
+    edit->setObjectName(ti.name());
+    ui->controlsLayout->addWidget(edit);
 }
 
 void ReportType1::generateLastElements()
@@ -248,17 +261,13 @@ ReportType1DynamicInput::ReportType1DynamicInput() : _type{InputType::NONE}
 ReportType1DynamicInput::ReportType1DynamicInput(const QString &type, QString const & name, QString const & label, QVariant const & other) :
         _type{toInputType(type)}, _name{name}, _label{label}
 {
-    if(_type == InputType::SQLCOMBOBOX){
-        _comboboxSql = other.toString();
-    }
+    _variant = other;
 }
 
 ReportType1DynamicInput::ReportType1DynamicInput(const ReportType1DynamicInput::InputType &type, QString const & name, QString const & label, QVariant const & other) :
         _type{type}, _name{name}, _label{label}
 {
-    if(type == InputType::SQLCOMBOBOX){
-        _comboboxSql = other.toString();
-    }
+    _variant = other;
 }
 
 ReportType1DynamicInput::InputType ReportType1DynamicInput::type() const
@@ -281,11 +290,6 @@ const QString &ReportType1DynamicInput::label() const
     return _label;
 }
 
-const QString &ReportType1DynamicInput::comboboxSql() const
-{
-    return _comboboxSql;
-}
-
 ReportType1DynamicInput::InputType ReportType1DynamicInput::toInputType(const QString &type)
 {
     const auto t = type.toLower();
@@ -303,8 +307,15 @@ ReportType1DynamicInput::InputType ReportType1DynamicInput::toInputType(const QS
         return InputType::COMBOBOX;
     else if(t=="sqlcombobox")
         return InputType::SQLCOMBOBOX;
+    else if(t=="subquery")
+        return InputType::SUBQUERY;
     else
         return InputType::NONE;
+}
+
+QVariant ReportType1DynamicInput::variant() const
+{
+    return _variant;
 }
 
 QString ReportType1DynamicInput::inputTypeToString(const ReportType1DynamicInput::InputType &it)
@@ -324,6 +335,9 @@ QString ReportType1DynamicInput::inputTypeToString(const ReportType1DynamicInput
         break;
     case InputType::TEXT:
         return "TEXT";
+        break;
+    case InputType::SUBQUERY:
+        return "SUBQUERY";
         break;
     case InputType::TIME:
         return "TIME";

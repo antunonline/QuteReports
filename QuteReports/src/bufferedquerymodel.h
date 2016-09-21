@@ -18,14 +18,11 @@ class BufferedQueryModel  : public QAbstractItemModel
     QSqlQuery _query;
     vector<vector<QVariant>> _rows;
     vector<QVariant> _headers;
-    std::thread _thread;
-    std::mutex _mtx;
     QSqlDatabase _db;
-    static std::atomic_int  _conn_count;
-    std::atomic_int _refCount{1};
 
 public:
     BufferedQueryModel(QObject * parent = 0);
+    BufferedQueryModel(const QSqlDatabase & _db, QObject * parent = 0);
     virtual ~BufferedQueryModel();
 
     void setQuery(const QString & query);
@@ -38,17 +35,17 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
     QModelIndex parent(const QModelIndex &child) const;
-    void deleteLater();
+
 
 signals:
     void dataLoaded();
 
 private:
 signals:
-    void execFinished();
+
 
 private slots:
-    void onExecFinished();
+
 };
 
 #endif // BUFFEREDQUERYMODEL_H

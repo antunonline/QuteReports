@@ -5,22 +5,20 @@
 #include <algorithm>
 #include <QTimer>
 
-std::atomic_int BufferedQueryModel::_conn_count(0);
 
-BufferedQueryModel::BufferedQueryModel(QObject *parent) : QAbstractItemModel(parent)
+
+BufferedQueryModel::BufferedQueryModel(QObject *parent) : BufferedQueryModel(QSqlDatabase::database(), parent)
 {
-    connect(this, &BufferedQueryModel::execFinished, this, &BufferedQueryModel::onExecFinished);
-    auto new_conn_name = QString("BufferedQueryModel") + _conn_count.fetch_add(1);
-    _db = QSqlDatabase::cloneDatabase(QSqlDatabase::database(), new_conn_name);
-    _db.open();
+}
+
+BufferedQueryModel::BufferedQueryModel(const QSqlDatabase &_db, QObject *parent) : QAbstractItemModel(parent)
+{
     _query = QSqlQuery(_db);
-    _conn_count.fetch_add(1);
 }
 
 BufferedQueryModel::~BufferedQueryModel()
 {
-    qDebug() << "Closing " << _db.connectionName();
-    _db.close();
+    qDebug() << "Destructing BufferedQueryModel";
 }
 
 void BufferedQueryModel::setQuery(const QString &query)
@@ -41,53 +39,62 @@ void BufferedQueryModel::bindValue(const QString &key, const QVariant &value)
 
 void BufferedQueryModel::exec()
 {
-    if(_refCount.fetch_add(1) == 0) // It's already deleted
-        return;
 
-    std::unique_lock<std::mutex> auto_lock(_mtx);
+    _headers.clear();
+    beginRemoveColumns({}, 0, std::max(0, static_cast<int>(_headers.size()-1)));
+    _rows.clear();
+    endRemoveColumns();
 
-    _thread = std::thread([this](){{
-            std::unique_lock<std::mutex> auto_lock(_mtx);
+    qDebug() << "BufferedQueryModel::exec(): beginRemoveRows";
+    beginRemoveRows({}, 0, std::max(0, static_cast<int>(_rows.size()-1)));
+    _rows.clear();
+    endRemoveRows();
 
-            qDebug() <<  "BufferedQueryModel::exec()";
-            if(!_query.exec()){
-                qDebug() << _query.lastError();
-            }
+    qDebug() <<  "BufferedQueryModel::exec()";
+    if(!_query.exec()){
+        qDebug() << _query.lastError();
+    }
 
-            qDebug() << _query.lastQuery();
+    qDebug() << _query.lastQuery();
 
-            const int colCount = _query.record().count();
+    const int colCount = _query.record().count();
 
-            qDebug() << "BufferedQueryModel::exec(): beginInsertRows";
-            while(_query.next()){
-                vector<QVariant> row;
-                for(int i = 0; i < colCount; i++) {
-                    row.push_back(_query.value(i).toString());
-                }
-                _rows.push_back(std::move(row));
-            };
+    qDebug() << "BufferedQueryModel::exec(): beginInsertRows";
+    while(_query.next()){
+        vector<QVariant> row;
+        for(int i = 0; i < colCount; i++) {
+            row.push_back(_query.value(i).toString());
         }
+        _rows.push_back(std::move(row));
+    };
 
-
-        if(_refCount.fetch_sub(1)==1){
-            delete this;
-            return;
-        }
-        execFinished();
-
-    });
-    _thread.detach();
 
     qDebug() << "Is active: " << _query.isActive();
     qDebug() << "Query size: " << _query.size();
 
-    qDebug() << "BufferedQueryModel::exec(): beginRemoveColumns";
-     _headers.clear();
+    beginInsertRows({},0, std::max(static_cast<int>(_rows.size()-1),0));
+    endInsertRows();
 
 
+    qDebug() << "BufferedQueryModel::exec(): beginInsertColumns";
+    for(int i = 0; i < colCount; i++){
+        auto fieldName = _query.record().fieldName(i);
+        qDebug() << "Field " << i << ": " << fieldName;
+        _headers.push_back(fieldName);
+    }
 
-    qDebug() << "BufferedQueryModel::exec(): beginRemoveRows";
-    _rows.clear();
+
+    qDebug() << "Rows: " << rowCount({}) << " , Columns: " << columnCount({});
+    qDebug() << "Rows: " << _rows.size() << " , Columns: " << _headers.size();
+
+    int discardedRows = 0;
+    while(_query.nextResult()){
+        while(_query.next()) discardedRows++;
+    }
+
+    if(discardedRows>0) qDebug() << "Discarding " << discardedRows << " rows.";
+    dataLoaded();
+
 
 }
 
@@ -140,41 +147,4 @@ QModelIndex BufferedQueryModel::parent(const QModelIndex &child) const
 {
     (void) child;
     return  {};
-}
-
-void BufferedQueryModel::deleteLater()
-{
-    if(_refCount.fetch_sub(1)==1){
-           delete this;
-    }
-}
-
-void BufferedQueryModel::onExecFinished()
-{
-    std::unique_lock<std::mutex> auto_lock(_mtx);
-    const int colCount = _query.record().count();
-
-    beginInsertRows({},0, std::max(static_cast<int>(_rows.size()-1),0));
-    endInsertRows();
-
-
-    qDebug() << "BufferedQueryModel::exec(): beginInsertColumns";
-    for(int i = 0; i < colCount; i++){
-        auto fieldName = _query.record().fieldName(i);
-        qDebug() << "Field " << i << ": " << fieldName;
-        _headers.push_back(fieldName);
-    }
-
-
-
-    qDebug() << "Rows: " << rowCount({}) << " , Columns: " << columnCount({});
-    qDebug() << "Rows: " << _rows.size() << " , Columns: " << _headers.size();
-
-    int discardedRows = 0;
-    while(_query.nextResult()){
-        while(_query.next()) discardedRows++;
-    }
-
-    if(discardedRows>0) qDebug() << "Discarding " << discardedRows << " rows.";
-    dataLoaded();
 }
