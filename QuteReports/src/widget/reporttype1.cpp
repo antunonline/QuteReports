@@ -117,8 +117,8 @@ void ReportType1::runReport()
             qDebug() << i.name() << "DATE" << findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd");
             break;
             case TYPE::DATETIME:
-            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
-            qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd");
+            _queryModel->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd HH:mm"));
+            qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd HH:mm");
             break;
         case TYPE::COMBOBOX:
             break;
