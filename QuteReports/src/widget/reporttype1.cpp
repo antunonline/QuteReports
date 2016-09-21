@@ -42,6 +42,9 @@ std::tuple<QString, QVector<ReportType1DynamicInput>> unserializeReportType1Json
                     if(ReportType1DynamicInput::toInputType(eType) == ReportType1DynamicInput::InputType::SQLCOMBOBOX &&
                             inputElement.size()>3)
                         other = inputElement[3].toString();
+                    else if(ReportType1DynamicInput::toInputType(eType) == ReportType1DynamicInput::InputType::SUBQUERY &&
+                            inputElement.size()>3)
+                        other = inputElement[3].toString();
 
 
                     dynamicElements.push_back({eType, eName, eLabel, other});
@@ -128,6 +131,7 @@ void ReportType1::runReport()
             break;
         case TYPE::SUBQUERY:
             qDebug() << i.name() << "SUBQUERY: " << findChild<QComboBox*>(i.name())->currentText();
+            _queryModel->bindSubquery(":"+i.name(), property(i.name()+"_query").toString(), findChild<QLineEdit*>(i.name())->text());
             break;
         case TYPE::TIME:
             break;
@@ -164,6 +168,9 @@ void ReportType1::generateDynamicInput()
             break;
         case TYPE::SQLCOMBOBOX:
             generateSqlCombobox(i);
+            break;
+        case TYPE::SUBQUERY:
+            generateSubquery(i);
             break;
         }
     }
@@ -230,6 +237,15 @@ void ReportType1::generateSqlCombobox(const ReportType1DynamicInput &ti)
     ui->controlsLayout->addWidget(box);
 }
 
+void ReportType1::generateSubquery(const ReportType1DynamicInput &ti)
+{
+    generateLabel(ti.label());
+    QLineEdit *edit = new QLineEdit(this);
+    edit->setObjectName(ti.name());
+    ui->controlsLayout->addWidget(edit);
+    // _inputElementData[ti.name()] =
+}
+
 void ReportType1::generateLastElements()
 {
     _runReportBtn = new QPushButton(this);
@@ -284,6 +300,11 @@ const QString &ReportType1DynamicInput::label() const
 const QString &ReportType1DynamicInput::comboboxSql() const
 {
     return _comboboxSql;
+}
+
+QVariant ReportType1DynamicInput::other() const
+{
+    return _other;
 }
 
 ReportType1DynamicInput::InputType ReportType1DynamicInput::toInputType(const QString &type)

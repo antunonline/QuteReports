@@ -39,6 +39,11 @@ void BufferedQueryModel::bindValue(const QString &key, const QVariant &value)
     _query.bindValue(key, value);
 }
 
+void BufferedQueryModel::bindSubquery(const QString &key, const QString &sql, const QString &subqueryKey)
+{
+
+}
+
 void BufferedQueryModel::exec()
 {
     if(_refCount.fetch_add(1) == 0) // It's already deleted

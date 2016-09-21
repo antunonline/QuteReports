@@ -2,12 +2,14 @@
 #define REPORTTYPE1_H
 
 #include <QWidget>
+#include <QMap>
 #include <QSqlQuery>
 #include <QSqlQueryModel>
 #include <QVector>
 #include "src/entities.h"
 #include "src/bufferedquerymodel.h"
 #include <QPushButton>
+#include <QMap>
 
 namespace Ui {
 class ReportType1;
@@ -27,8 +29,8 @@ public:
     };
 private:
     InputType _type;
-    QString _name, _label, _comboboxSql;
-
+    QString _name, _label, _comboboxSql, _subquery;
+    QVariant _other;
 public:
     ReportType1DynamicInput();
     ReportType1DynamicInput(const QString & type, QString const & name, QString const & label, QVariant const & other = QVariant::Invalid);
@@ -39,6 +41,7 @@ public:
     const QString & name() const;
     const QString & label() const;
     const QString & comboboxSql() const;
+    QVariant other() const;
     static InputType toInputType(const QString & type);
     static QString inputTypeToString(const InputType &it);
 };
@@ -63,6 +66,7 @@ private:
     BufferedQueryModel * _queryModel;
     QVector<ReportType1DynamicInput> _dynamicInput;
     QPushButton * _runReportBtn =nullptr;
+    QMap<QString, QVariant> _inputElementData;
 private slots:
     void runReport();
     void on_excelExportBtn_clicked();
@@ -75,6 +79,7 @@ protected:
     void generateTime(ReportType1DynamicInput const &ti);
     void generateDateTime(ReportType1DynamicInput const &ti);
     void generateSqlCombobox(ReportType1DynamicInput const &ti);
+    void generateSubquery(ReportType1DynamicInput const &ti);
     void generateLastElements();
 };
 

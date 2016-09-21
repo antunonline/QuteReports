@@ -30,6 +30,7 @@ public:
 
     void setQuery(const QString & query);
     void bindValue(const QString & key, QVariant const & value);
+    void bindSubquery(const QString & key, const QString & sql, const QString & subqueryKey);
     void exec();
 
     int rowCount(const QModelIndex &parent) const;

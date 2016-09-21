@@ -91,6 +91,9 @@ public:
             inputArray.push_back(i.label());
             if(i.type() == ReportType1DynamicInput::InputType::SQLCOMBOBOX){
                 inputArray.push_back(i.comboboxSql());
+            } else
+            if(i.type() == ReportType1DynamicInput::InputType::SUBQUERY){
+                inputArray.push_back(i.comboboxSql());
             }
 
             jsonInputsArray.push_back(inputArray);
@@ -162,6 +165,9 @@ public:
                 break;
                 case ReportType1DynamicInput::InputType::COMBOBOX:
                     return QVariant("COMBOBOX");
+                break;
+                case ReportType1DynamicInput::InputType::SUBQUERY:
+                    return QVariant("SUBQUERY");
                 break;
                 case ReportType1DynamicInput::InputType::NONE:
                     return QVariant("NONE");
