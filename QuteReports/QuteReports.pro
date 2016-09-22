@@ -14,7 +14,8 @@ SOURCES += main.cpp \
     src/entities.cpp \
     src/reporteditorcontroller.cpp \
     src/bufferedquerymodel.cpp \
-    src/reportviewcontroller.cpp
+    src/reportviewcontroller.cpp \
+    src/components/queryexectaskrunner.cpp
 
 RESOURCES += qml.qrc
 
@@ -37,7 +38,8 @@ HEADERS += \
     src/reporteditorcontroller.h \
     src/reportviewcontroller.h \
     src/bufferedquerymodel.h \
-    src/delegates.h
+    src/delegates.h \
+    src/components/queryexectaskrunner.h
 
 FORMS += \
     src/qutemainwindow.ui \

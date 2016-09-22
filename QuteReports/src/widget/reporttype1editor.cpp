@@ -31,7 +31,7 @@ public:
         deserializeJsonState(data);
     }
 
-    void addDynamicInput(QString const & type, QString const & name, QString const & label, const QVariant & other = QVariant::Invalid) {
+    void addDynamicInput(const QModelIndex &mi,  QString const & type, QString const & name, QString const & label, const QVariant & other = QVariant::Invalid) {
         beginInsertRows(QModelIndex(), _inputs.size(), _inputs.size());
         _inputs.push_back({type, name, label, other});
         endInsertRows();
@@ -44,24 +44,21 @@ public:
         return found;
     }
 
-    void removeDynamicInput(QString const & name) {
-        auto found = findDynamicInput(name);
-        if(found != _inputs.end()) {
-            const int pos = found - _inputs.begin();
-            beginRemoveRows(QModelIndex(), pos, pos);
-            _inputs.remove(found - _inputs.begin());
+    void removeDynamicInput(const QModelIndex &mi) {
+        if(mi.isValid() && mi.row() < _inputs.size()) {
+            beginRemoveRows(QModelIndex(), mi.row(), mi.row());
+            _inputs.remove(mi.row());
             endRemoveRows();
         }
 
     }
 
-    void updateDynamicInput(QString const & name, QString const & type, const QString & label, const QVariant & other = QVariant::Invalid) {
-        auto found = findDynamicInput(name);
-        if(found == _inputs.end()) return;
+    void updateDynamicInput(const QModelIndex &mi, QString const & name, QString const & type, const QString & label, const QVariant & other = QVariant::Invalid) {
+        if(!mi.isValid())
+            return;
 
-        *found = {type, name, label, other};
-        auto const pos = found - _inputs.begin();
-        dataChanged(createIndex(pos,0), createIndex(pos, 2));
+        _inputs[mi.row()] = {type, name, label, other};
+        dataChanged(createIndex(mi.row(),0), createIndex(mi.row(), 2));
         dataChanged(createIndex(0,0), createIndex(rowCount(), columnCount()));
     }
 
@@ -90,10 +87,10 @@ public:
             inputArray.push_back(i.name());
             inputArray.push_back(i.label());
             if(i.type() == ReportType1DynamicInput::InputType::SQLCOMBOBOX){
-                inputArray.push_back(i.comboboxSql());
-            } else
-            if(i.type() == ReportType1DynamicInput::InputType::SUBQUERY){
-                inputArray.push_back(i.comboboxSql());
+                inputArray.push_back(i.variant().toString());
+            }
+            else if(i.type() == ReportType1DynamicInput::InputType::SUBQUERY){
+                inputArray.push_back(i.variant().toString());
             }
 
             jsonInputsArray.push_back(inputArray);
@@ -143,7 +140,7 @@ public:
         return 3;
     }
     QVariant data(const QModelIndex &index, int role) const{
-        if(role == Qt::DisplayRole){
+        if(role == Qt::DisplayRole && index.row() < _inputs.size()){
             auto input = _inputs[index.row()];
             switch (index.column()) {
             case 0:
@@ -259,28 +256,41 @@ void ReportType1Editor::connectEvents()
         ui->inputLabel->setText(i.label());
         ui->inputName->setText(i.name());
         ui->inputType->setCurrentText(i.typeAsString());
-        ui->sqlComboboxText->setPlainText(i.comboboxSql());
+        if(i.type() == ReportType1DynamicInput::InputType::COMBOBOX || i.type() == ReportType1DynamicInput::InputType::SUBQUERY)
+            ui->sqlComboboxText->setPlainText(i.variant().toString());
+        else
+            ui->sqlComboboxText->setPlainText("");
 
     });
     connect(ui->addInputBtn, &QPushButton::clicked, [this](){
         QVariant other;
         if(ui->inputType->currentText() == "SQLCOMBOBOX")
             other = ui->sqlComboboxText->toPlainText();
-        _controller->addDynamicInput(ui->inputType->currentText(), ui->inputName->text(), ui->inputLabel->text(), other);
+        else if(ui->inputType->currentText() == "SUBQUERY")
+            other = ui->sqlComboboxText->toPlainText();
+        _controller->addDynamicInput({}, ui->inputType->currentText(), ui->inputName->text(), ui->inputLabel->text(), other);
         clearInputElementFields();
         qDebug() << "Add input";
     });
 
     connect(ui->editInputBtn, &QPushButton::clicked, [this](){
+        if(ui->inputElementsTable->selectionModel()->selectedRows().size() == 0)
+            return;
         QVariant other;
         if(ui->inputType->currentText() == "SQLCOMBOBOX")
             other = ui->sqlComboboxText->toPlainText();
-        _controller->updateDynamicInput( ui->inputName->text(), ui->inputType->currentText(), ui->inputLabel->text(), other);
+        else if(ui->inputType->currentText() == "SUBQUERY")
+            other = ui->sqlComboboxText->toPlainText();
+        auto im = ui->inputElementsTable->selectionModel()->selectedRows().first();
+        _controller->updateDynamicInput(im,  ui->inputName->text(), ui->inputType->currentText(), ui->inputLabel->text(), other);
         qDebug() << "Update input";
     });
 
     connect(ui->deleteInputBtn, &QPushButton::clicked, [this](){
-        _controller->removeDynamicInput(ui->inputName->text());
+        if(ui->inputElementsTable->selectionModel()->selectedRows().size() == 0)
+            return;
+        auto im = ui->inputElementsTable->selectionModel()->selectedRows().first();
+        _controller->removeDynamicInput(im);
         qDebug() << "Remove input";
     });
 
