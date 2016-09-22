@@ -73,6 +73,7 @@ private:
 private slots:
     void runReport();
     void on_excelExportBtn_clicked();
+    void modelReady();
 
 protected:
     void init();

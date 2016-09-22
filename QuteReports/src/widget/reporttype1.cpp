@@ -95,12 +95,7 @@ void ReportType1::init()
     _queryTaskRunner = new QueryExecTaskRunner(_db);
     generateDynamicInput();
 
-    connect(_queryTaskRunner, &QueryExecTaskRunner::done, [this](){
-        this->_runReportBtn->setDisabled(false);
-        this->ui->treeView->setModel(nullptr);
-        this->ui->treeView->setModel(&(*_queryTaskRunner->model()));
-        this->_queryModel = _queryTaskRunner->model();
-    });
+    connect(_queryTaskRunner, SIGNAL(done()), this, SLOT(modelReady()));
 }
 
 ReportType1::~ReportType1()
@@ -126,8 +121,8 @@ void ReportType1::runReport()
             qDebug() << i.name() << "DATE" << findChild<QDateTimeEdit*>(i.name())->date().toString("yyyy-MM-dd");
             break;
             case TYPE::DATETIME:
-            _queryTaskRunner->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd"));
-            qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd");
+            _queryTaskRunner->bindValue(":"+i.name(), findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd HH:mm"));
+            qDebug() << i.name() << "DATETIME: " << findChild<QDateTimeEdit*>(i.name())->dateTime().toString("yyyy-MM-dd HH:mm");
             break;
         case TYPE::COMBOBOX:
             break;
@@ -229,10 +224,13 @@ void ReportType1::generateDateTime(const ReportType1DynamicInput &ti)
 
 void ReportType1::generateSqlCombobox(const ReportType1DynamicInput &ti)
 {
-    generateLabel(ti.label());
-    QLineEdit *edit = new QLineEdit(this);
-    edit->setObjectName(ti.name());
-    ui->controlsLayout->addWidget(edit);
+   const auto sql = ti.variant().toString();
+   QSqlQueryModel * model = new QSqlQueryModel(this);
+   model->setQuery(sql);
+   QComboBox *box = new QComboBox(this);
+   box->setObjectName(ti.name());
+   box->setModel(model);
+   ui->controlsLayout->addWidget(box);
 }
 
 void ReportType1::generateSqlSubquery(const ReportType1DynamicInput &ti)
@@ -355,4 +353,12 @@ void ReportType1::on_excelExportBtn_clicked()
     QmlItemModelXlsxExporter exporter;
     exporter.exportModel(fileName, *_queryModel);
 
+}
+
+void ReportType1::modelReady()
+{
+    this->_runReportBtn->setDisabled(false);
+    this->ui->treeView->setModel(nullptr);
+    this->ui->treeView->setModel(&(*_queryTaskRunner->model()));
+    this->_queryModel = _queryTaskRunner->model();
 }

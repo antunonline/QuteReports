@@ -163,6 +163,9 @@ public:
                 case ReportType1DynamicInput::InputType::COMBOBOX:
                     return QVariant("COMBOBOX");
                 break;
+                case ReportType1DynamicInput::InputType::SQLCOMBOBOX:
+                    return QVariant("SQLCOMBOBOX");
+                break;
                 case ReportType1DynamicInput::InputType::SUBQUERY:
                     return QVariant("SUBQUERY");
                 break;

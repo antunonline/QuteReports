@@ -54,7 +54,7 @@ void QueryExecTaskRunner::exec()
        _queryModel->setQuery(_query);
 
         // Bind model values
-       for(auto & kv : _bindValues)
+       for(auto const & kv : _bindValues)
            _queryModel->bindValue(kv.first, kv.second);
 
        // Execute model
