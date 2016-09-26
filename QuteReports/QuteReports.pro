@@ -15,7 +15,8 @@ SOURCES += main.cpp \
     src/reporteditorcontroller.cpp \
     src/bufferedquerymodel.cpp \
     src/reportviewcontroller.cpp \
-    src/components/queryexectaskrunner.cpp
+    src/components/queryexectaskrunner.cpp \
+    src/widget/reporttype1dynamicfieldeditor.cpp
 
 RESOURCES += qml.qrc
 
@@ -39,10 +40,12 @@ HEADERS += \
     src/reportviewcontroller.h \
     src/bufferedquerymodel.h \
     src/delegates.h \
-    src/components/queryexectaskrunner.h
+    src/components/queryexectaskrunner.h \
+    src/widget/reporttype1dynamicfieldeditor.h
 
 FORMS += \
     src/qutemainwindow.ui \
     src/widget/reportopenerwidget.ui \
     src/widget/reporttype1.ui \
-    src/widget/reporttype1editor.ui
+    src/widget/reporttype1editor.ui \
+    src/widget/reporttype1dynamicfieldeditor.ui

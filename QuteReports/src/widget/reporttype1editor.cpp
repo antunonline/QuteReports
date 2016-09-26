@@ -86,10 +86,7 @@ public:
             inputArray.push_back(ReportType1DynamicInput::inputTypeToString(i.type()));
             inputArray.push_back(i.name());
             inputArray.push_back(i.label());
-            if(i.type() == ReportType1DynamicInput::InputType::SQLCOMBOBOX){
-                inputArray.push_back(i.variant().toString());
-            }
-            else if(i.type() == ReportType1DynamicInput::InputType::SUBQUERY){
+            if(i.type() == ReportType1DynamicInput::InputType::SQLCOMBOBOX || i.type() == ReportType1DynamicInput::InputType::SUBQUERY){
                 inputArray.push_back(i.variant().toString());
             }
 
@@ -331,7 +328,7 @@ void ReportType1Editor::clearInputElementFields()
 {
     ui->inputName->setText("");
     ui->inputLabel->setText("");
-    ui->comboboxSql->setText("");
+    ui->sqlComboboxText->setPlainText("");
 }
 
 void ReportType1Editor::populateFields()

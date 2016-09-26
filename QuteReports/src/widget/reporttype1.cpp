@@ -14,6 +14,7 @@
 #include "src/qml/qmlitemmodelxlsxexporter.h"
 #include <QComboBox>
 #include <atomic>
+#include <QStandardPaths>
 
 static std::atomic_int _atomic_db_instance_counter{0};
 
@@ -348,10 +349,10 @@ QString ReportType1DynamicInput::inputTypeToString(const ReportType1DynamicInput
 
 void ReportType1::on_excelExportBtn_clicked()
 {
-    auto fileName = QFileDialog::getSaveFileName(this);
+    auto fileName = QFileDialog::getSaveFileName(this, tr("Save File"), QStandardPaths::locate(QStandardPaths::DesktopLocation, ".", QStandardPaths::LocateDirectory), tr("Excel (*.xlsx)"));
     if(fileName.size() == 0 )return;
     QmlItemModelXlsxExporter exporter;
-    exporter.exportModel(fileName, *_queryModel);
+    exporter.exportModel(fileName+".xlsx", *_queryModel);
 
 }
 
